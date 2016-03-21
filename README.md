@@ -41,5 +41,6 @@ In the Python API, the first channel is `0`.
 
 ```python
 channel=0
-aup.towav("file.wav", channel)
+aup.towav("file.wav", channel, start=0, stop=None)
 ```
+Optionally, you can specify `start` and `stop` (in seconds) to only extract part of an `.aup` file.

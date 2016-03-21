@@ -37,20 +37,39 @@ class Aup:
             raise ValueError("Channel number out of bounds")
         self.channel = channel
         self.aunr = 0
+        self.offset = 0
         return self
 
     def close(self):
         self.aunr = -1
+
+    ## a linear search (not great)
+    def seek(self, pos):
+        if self.aunr < 0:
+            raise IOError("File not opened")
+        s = 0
+        i = 0
+        length = 0
+        for i, f in enumerate(self.files[self.channel]):
+            s += f[1]
+            if s > pos:
+                length = f[1]
+                break
+        if pos >= s:
+            raise EOFError("Seek past end of file")
+        self.aunr = i
+        self.offset = pos - s + length
 
     def read(self):
         if self.aunr < 0:
             raise IOError("File not opened")
         while self.aunr < len(self.files[self.channel]):
             with open(self.files[self.channel][self.aunr][0]) as fd:
-                fd.seek(-self.files[self.channel][self.aunr][1] * 4, 2)
+                fd.seek((self.offset - self.files[self.channel][self.aunr][1]) * 4, 2)
                 data = fd.read()
                 yield data
             self.aunr += 1
+            self.offset = 0
 
     def __enter__(self):
         return self
@@ -58,16 +77,25 @@ class Aup:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def towav(self, filename, channel):
+    def towav(self, filename, channel, start=0, stop=None):
         wav = wave.open(filename, "w")
         wav.setnchannels(1)
         wav.setsampwidth(2)
         wav.setframerate(self.rate)
         scale = 1 << 15
+        if stop:
+            length = int(self.rate * (stop - start)) ## number of samples to extract
         with self.open(channel) as fd:
+            self.seek(int(self.rate * start))
             for data in fd.read():
                 shorts = numpy.short(numpy.clip(numpy.frombuffer(data, numpy.float32) * scale, -scale, scale-1))
+                if stop and len(shorts) > length:
+                    shorts = shorts[range(length)]
                 format = "<" + str(len(shorts)) + "h"
                 wav.writeframesraw(struct.pack(format, *shorts))
+                if stop:
+                    length -= len(shorts)
+                    if length <= 0:
+                        break
             wav.writeframes("") ## sets length in wavfile
         wav.close()
