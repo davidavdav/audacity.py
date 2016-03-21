@@ -3,6 +3,12 @@ A Python tool to extract .wav files from Audacity .aup files
 
 This package can read an Audacity `.aup` file, and can extract the audio for a given channel and save as a `.wav` file. 
 
+## Install
+
+```sh
+pip install --user git+https://github.com/davidavdav/audacity.py.git
+```
+
 ## Command line usage
 
 Extract the second channel from an `.aup` file
