@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+# (c) 2016 David A. van Leeuwen
+## extract .wav channel from .aup file
+##
+## usage: python -m audacity --channel 1 file.aup file.wav
+
 
 import argparse
 from . import aup

@@ -1,7 +1,10 @@
 #!/usr/bin/env python
+# (c) 2016 David A. van Leeuwen
+##
+## audacity/__init__.py .  Main routines for reading Audacity .aup files
 
 import xml.etree.ElementTree as ET
-import argparse, wave, os, numpy, struct
+import wave, os, numpy, struct
 
 class aup:
     def __init__(self, aupfile):
