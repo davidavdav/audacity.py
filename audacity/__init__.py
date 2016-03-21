@@ -6,7 +6,7 @@
 import xml.etree.ElementTree as ET
 import wave, os, numpy, struct
 
-class aup:
+class Aup:
     def __init__(self, aupfile):
         fqpath = os.path.join(os.path.curdir, aupfile)
         dir = os.path.dirname(fqpath)

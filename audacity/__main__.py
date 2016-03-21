@@ -6,7 +6,7 @@
 
 
 import argparse
-from . import aup
+from . import Aup
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
@@ -14,5 +14,5 @@ if __name__ == "__main__":
     p.add_argument("aupfile")
     p.add_argument("wavfile")
     args = p.parse_args()
-    a = aup(args.aupfile)
+    a = Aup(args.aupfile)
     a.towav(args.wavfile, args.channel-1)
