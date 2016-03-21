@@ -25,7 +25,7 @@ class Aup:
                 d2 = "d" + filename[3:5]
                 file = os.path.join(dir, self.project, d1, d2, filename)
                 if not os.path.exists(file):
-                    raise Warning("File missing in %s: %s" % (self.project, file))
+                    raise IOError("File missing in %s: %s" % (self.project, file))
                 else:
                     aufiles.append((file, int(b.attrib["len"])))
             self.files.append(aufiles)
