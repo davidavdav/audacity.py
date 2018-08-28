@@ -13,7 +13,7 @@ class Aup:
         xml = open(aupfile)
         self.tree = ET.parse(xml)
         self.root = self.tree.getroot()
-        self.rate = int(self.root.attrib["rate"])
+        self.rate = int(float(self.root.attrib["rate"]))
         ns = {"ns":"http://audacity.sourceforge.net/xml/"}
         self.project = self.root.attrib["projname"]
         self.files = []
