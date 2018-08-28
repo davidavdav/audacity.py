@@ -64,7 +64,7 @@ class Aup:
         if self.aunr < 0:
             raise IOError("File not opened")
         while self.aunr < len(self.files[self.channel]):
-            with open(self.files[self.channel][self.aunr][0]) as fd:
+            with open(self.files[self.channel][self.aunr][0], 'rb') as fd:
                 fd.seek((self.offset - self.files[self.channel][self.aunr][1]) * 4, 2)
                 data = fd.read()
                 yield data
@@ -97,5 +97,5 @@ class Aup:
                     length -= len(shorts)
                     if length <= 0:
                         break
-            wav.writeframes("") ## sets length in wavfile
+            wav.writeframes(b'') ## sets length in wavfile
         wav.close()
