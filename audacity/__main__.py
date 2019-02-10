@@ -11,8 +11,9 @@ from . import Aup
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--channel", type=int, default=1)
+    p.add_argument("--bitdepth", type=int, default=16, choices=[16, 32])
     p.add_argument("aupfile")
     p.add_argument("wavfile")
     args = p.parse_args()
     a = Aup(args.aupfile)
-    a.towav(args.wavfile, args.channel-1)
+    a.towav(args.wavfile, args.channel-1, bit_depth=args.bitdepth)
