@@ -77,24 +77,29 @@ class Aup:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def towav(self, filename, channel, start=0, stop=None):
+    def towav(self, filename, channel, start=0, stop=None, bit_depth=16):
+        """Allowed bit_depth values: 16 or 32."""
+        # The reason for not supporting 24-bit depth is there's no struct.pack format that supports
+        # 3-byte-wide integers and one can easily down-convert afterwards.
+        assert bit_depth in {16, 32}
         wav = wave.open(filename, "w")
         wav.setnchannels(1)
-        wav.setsampwidth(2)
+        wav.setsampwidth(bit_depth // 8)
         wav.setframerate(self.rate)
-        scale = 1 << 15
+        scale = 1 << (bit_depth - 1)
+        numpy_type = numpy.short if bit_depth == 16 else numpy.intc
         if stop:
             length = int(self.rate * (stop - start)) ## number of samples to extract
         with self.open(channel) as fd:
             self.seek(int(self.rate * start))
             for data in fd.read():
-                shorts = numpy.short(numpy.clip(numpy.frombuffer(data, numpy.float32) * scale, -scale, scale-1))
-                if stop and len(shorts) > length:
-                    shorts = shorts[range(length)]
-                format = "<" + str(len(shorts)) + "h"
-                wav.writeframesraw(struct.pack(format, *shorts))
+                values = numpy_type(numpy.clip(numpy.frombuffer(data, numpy.float32) * scale, -scale, scale-1))
+                if stop and len(values) > length:
+                    values = values[range(length)]
+                format = "<" + str(len(values)) + ("h" if bit_depth == 16 else "i")
+                wav.writeframesraw(struct.pack(format, *values))
                 if stop:
-                    length -= len(shorts)
+                    length -= len(values)
                     if length <= 0:
                         break
             wav.writeframes(b'') ## sets length in wavfile
