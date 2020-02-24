@@ -3,8 +3,80 @@
 ##
 ## audacity/__init__.py .  Main routines for reading Audacity .aup files
 
+from __future__ import annotations
+
 import xml.etree.ElementTree as ET
 import wave, os, numpy, struct
+
+
+class Channel:
+    def __init__(self, aup:Aup, channel_no:int) -> None:
+        self.aup = aup
+        self.channel_no = channel_no
+        self.aunr = 0
+        self.offset = 0
+
+    def close(self):
+        self.aunr = -1
+
+    ## a linear search (not great)
+    def seek(self, pos):
+        if self.aunr < 0:
+            raise IOError("File not opened")
+        s = 0
+        i = 0
+        length = 0
+        for i, f in enumerate(self.aup.files[self.channel_no]):
+            s += f[1]
+            if s > pos:
+                length = f[1]
+                break
+        if pos >= s:
+            raise EOFError("Seek past end of file")
+        self.aunr = i
+        self.offset = pos - s + length
+
+    def read(self):
+        if self.aunr < 0:
+            raise IOError("File not opened")
+        while self.aunr < len(self.aup.files[self.channel_no]):
+            current_chunk = self.aup.files[self.channel_no][self.aunr]
+            with open(current_chunk[0], 'rb') as fd:
+                fd.seek((self.offset - current_chunk[1]) * 4, 2)
+                data = fd.read()
+                yield data
+            self.aunr += 1
+            self.offset = 0
+
+    def towav(self, filename, start=0, stop=None, bit_depth=16) -> None:
+        """Allowed bit_depth values: 16 or 32."""
+        # The reason for not supporting 24-bit depth is there's no struct.pack format that supports
+        # 3-byte-wide integers and one can easily down-convert afterwards.
+        assert bit_depth in {16, 32}
+        wav = wave.open(filename, "w")
+        wav.setnchannels(1)
+        wav.setsampwidth(bit_depth // 8)
+        wav.setframerate(self.aup.rate)
+        scale = 1 << (bit_depth - 1)
+        numpy_type = numpy.short if bit_depth == 16 else numpy.intc
+        if stop:
+            length = int(self.aup.rate * (stop - start)) ## number of samples to extract
+
+        self.seek(int(self.aup.rate * start))
+
+        for data in self.read():
+            values = numpy_type(numpy.clip(numpy.frombuffer(data, numpy.float32) * scale, -scale, scale-1))
+            if stop and len(values) > length:
+                values = values[range(length)]
+            format = "<" + str(len(values)) + ("h" if bit_depth == 16 else "i")
+            wav.writeframesraw(struct.pack(format, *values))
+            if stop:
+                length -= len(values)
+                if length <= 0:
+                    break
+        wav.writeframes(b'') ## sets length in wavfile
+        wav.close()
+
 
 class Aup:
     def __init__(self, aupfile):
@@ -35,41 +107,7 @@ class Aup:
     def open(self, channel):
         if not (0 <= channel < self.nchannels):
             raise ValueError("Channel number out of bounds")
-        self.channel = channel
-        self.aunr = 0
-        self.offset = 0
-        return self
-
-    def close(self):
-        self.aunr = -1
-
-    ## a linear search (not great)
-    def seek(self, pos):
-        if self.aunr < 0:
-            raise IOError("File not opened")
-        s = 0
-        i = 0
-        length = 0
-        for i, f in enumerate(self.files[self.channel]):
-            s += f[1]
-            if s > pos:
-                length = f[1]
-                break
-        if pos >= s:
-            raise EOFError("Seek past end of file")
-        self.aunr = i
-        self.offset = pos - s + length
-
-    def read(self):
-        if self.aunr < 0:
-            raise IOError("File not opened")
-        while self.aunr < len(self.files[self.channel]):
-            with open(self.files[self.channel][self.aunr][0], 'rb') as fd:
-                fd.seek((self.offset - self.files[self.channel][self.aunr][1]) * 4, 2)
-                data = fd.read()
-                yield data
-            self.aunr += 1
-            self.offset = 0
+        return Channel(self, channel)
 
     def __enter__(self):
         return self
@@ -78,29 +116,6 @@ class Aup:
         self.close()
 
     def towav(self, filename, channel, start=0, stop=None, bit_depth=16):
-        """Allowed bit_depth values: 16 or 32."""
-        # The reason for not supporting 24-bit depth is there's no struct.pack format that supports
-        # 3-byte-wide integers and one can easily down-convert afterwards.
-        assert bit_depth in {16, 32}
-        wav = wave.open(filename, "w")
-        wav.setnchannels(1)
-        wav.setsampwidth(bit_depth // 8)
-        wav.setframerate(self.rate)
-        scale = 1 << (bit_depth - 1)
-        numpy_type = numpy.short if bit_depth == 16 else numpy.intc
-        if stop:
-            length = int(self.rate * (stop - start)) ## number of samples to extract
-        with self.open(channel) as fd:
-            self.seek(int(self.rate * start))
-            for data in fd.read():
-                values = numpy_type(numpy.clip(numpy.frombuffer(data, numpy.float32) * scale, -scale, scale-1))
-                if stop and len(values) > length:
-                    values = values[range(length)]
-                format = "<" + str(len(values)) + ("h" if bit_depth == 16 else "i")
-                wav.writeframesraw(struct.pack(format, *values))
-                if stop:
-                    length -= len(values)
-                    if length <= 0:
-                        break
-            wav.writeframes(b'') ## sets length in wavfile
-        wav.close()
+        """for backwards compatibility
+        """
+        return self.open(channel).towav(filename, start, stop, bit_depth)
